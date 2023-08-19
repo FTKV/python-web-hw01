@@ -3,6 +3,7 @@ import pathlib
 from platformdirs import user_data_dir
 from rich import print as rprint
 from .notes_classes import Tag, Note, Notes, IdError
+from .output_classes import NotesConsoleOutput, NotesTableOutput
 
 
 TEXT_COLOR = {
@@ -13,6 +14,7 @@ TEXT_COLOR = {
 
 
 notes = Notes()
+output_handler = NotesTableOutput()
 
 
 def input_error(func):
@@ -29,7 +31,7 @@ def input_error(func):
 
 def show_commands_note(user_input):
     all_commands = ["add_note", "edit_note", "remove_note", "remove_all_notes", "show_notes", "search_note", "search_by_tags",
-                    "add_tags_to_note", "remove_tags_in_note", "remove_all_tags_in_note", "mark_done", "unmark_done", "exit",
+                    "add_tags_to_note", "remove_tags_in_note", "remove_all_tags_in_note", "mark_done", "unmark_done", "change_output_method", "exit",
                     "close"]
     if user_input.strip().lower() == "commands":
         for com in all_commands:
@@ -66,8 +68,7 @@ def add_note(user_input):
 
     notes.add_note(note)
 
-    result_note = "-"*20 + "\n" + TEXT_COLOR['green'] + "This note was succesfully added!\n" + TEXT_COLOR["reset"] + \
-        "-"*20 + "\n" + str(note) + "\n"
+    result_note = "-"*20 + "\n" + TEXT_COLOR['green'] + "The note was succesfully added!\n" + TEXT_COLOR["reset"]
 
     return result_note
 
@@ -129,11 +130,11 @@ def remove_all_notes(user_input):
 def show_notes(user_input):
     user_input_list = user_input.split()
     if len(user_input_list) == 1:
-        result_note = []
-        for note in notes.show_notes():
-            result_note.append(note)
-        if result_note:
-            return "\n" + "\n--------------------\n".join(result_note)
+        result_notes = []
+        for id, note in notes.show_notes():
+            result_notes.append((id, note))
+        if result_notes:
+            return output(result_notes)
         else:
             return TEXT_COLOR['red'] + "\nYour notes list is empty!\n" + TEXT_COLOR["reset"]
     else:
@@ -147,12 +148,12 @@ def search_note(user_input):
     if not user_input:
         return TEXT_COLOR['red'] + "\nYou have to write some content to find a note!\n" + TEXT_COLOR["reset"]
 
-    result_note = []
-    for note in notes.show_notes(user_input):
-        result_note.append(note)
+    result_notes = []
+    for id, note in notes.show_notes(user_input):
+        result_notes.append((id, note))
 
-    if result_note:
-        return "\n" + "\n--------------------\n".join(result_note) + "\n"
+    if result_notes:
+        return "\n" + "\n--------------------\n".join([f"ID: {id:08}\n{note}\n" for id, note in result_notes])
     else:
         return TEXT_COLOR['red'] + "\nYou don't have any notes with this content!\n" + TEXT_COLOR["reset"]
 
@@ -163,13 +164,10 @@ def search_by_tags(user_input):
     if not user_input:
         return TEXT_COLOR['red'] + "\nWrite some tags to find a note!\n" + TEXT_COLOR["reset"]
     user_input = user_input.split(", ")
-    result_note = []
+    result_notes = notes.search_and_sort_by_tags(user_input)
 
-    for note in notes.search_and_sort_by_tags(user_input):
-        result_note.append(str(note))
-
-    if result_note:
-        return "\n" + "\n--------------------\n".join(result_note) + "\n"
+    if result_notes:
+        return "\n" + "\n--------------------\n".join([f"ID: {id:08}\n{note}\n" for id, note in result_notes])
     else:
         return TEXT_COLOR['red'] + "\nNo notes were found by your tags!\n" + TEXT_COLOR["reset"]
 
@@ -264,6 +262,20 @@ def mark_done(user_input):
             return TEXT_COLOR['green'] + "\nNote was unmarked done!\n" + TEXT_COLOR["reset"]
     except AttributeError:
         return TEXT_COLOR['red'] + "\nThere is no such note!\n" + TEXT_COLOR["reset"]
+    
+
+def change_output_method(user_input):
+    global output_handler
+    user_input = user_input.removeprefix("change_output_method")
+    user_input = user_input.strip()
+    if user_input not in ["console", "table"]:
+        return TEXT_COLOR['red'] + "\nTo change the output method you need to write 'change_output_method ['console', 'table']'\n" + TEXT_COLOR["reset"]
+    else:
+        if user_input == "console":
+            output_handler = NotesConsoleOutput()
+        elif user_input == "table":
+            output_handler = NotesTableOutput()
+        return TEXT_COLOR['green'] + "\nThe output method was changed!\n" + TEXT_COLOR["reset"]
 
 
 operations_notes = {
@@ -279,7 +291,8 @@ operations_notes = {
     "remove_tags_in_note": remove_tags_in_note,
     "remove_all_tags_in_note": remove_tags_in_note,
     "mark_done": mark_done,
-    "unmark_done": mark_done
+    "unmark_done": mark_done,
+    "change_output_method": change_output_method,
 }
 
 
@@ -301,6 +314,11 @@ def get_file_path(file_name):
         path.mkdir()
     file_path = path.joinpath(file_name)
     return file_path
+
+
+def output(result_notes):
+    global output_handler
+    return output_handler.output(result_notes)
 
 
 def notes_main_func():
@@ -327,4 +345,6 @@ def notes_main_func():
             if type(result_handler) == str:
                 print(result_handler)
             else:
-                print(result_handler(user_input))
+                result = result_handler(user_input)
+                if result:
+                    print(result)

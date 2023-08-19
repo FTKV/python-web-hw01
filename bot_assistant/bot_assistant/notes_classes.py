@@ -1,6 +1,7 @@
 from collections import UserDict
 from datetime import datetime
 import pickle
+from rich.table import Table
 
 
 DATE_FORMAT = "%d.%m.%Y"
@@ -83,6 +84,16 @@ class Note():
         result += f"Date modified: {self.date_modified.strftime(DATETIME_FORMAT)}\n"
         result += f"Is done: {self.flag_done}"
         return result
+    
+    def table_repr(self):
+        table = Table()
+        table.add_column(self.title, justify="left", width=100)
+        table.add_row(self.body + "\n")
+        table.add_row(" ".join(map(str, self.tags)) + "\n")
+        table.add_row(f"Date created: {self.date_created.strftime(DATETIME_FORMAT)}")
+        table.add_row(f"Date modified: {self.date_modified.strftime(DATETIME_FORMAT)}")
+        table.add_row(f"Is done: {self.flag_done}")
+        return table
 
 
 class Tag:
@@ -131,11 +142,13 @@ class Notes(UserDict):
         """
         if not text:
             for id, note in self.data.items():
-                yield f"ID: {id:08}\n{note}\n"
+                #yield f"ID: {id:08}\n{note}\n"
+                yield id, note
         else:
             for id, note in self.data.items():
                 if text.casefold() in note.title.casefold() or text.casefold() in note.body.casefold():
-                    yield f"ID: {id:08}\n{note}\n"
+                    #yield f"ID: {id:08}\n{note}\n"
+                    yield id, note
 
     # Виконує пошук за тегами та показує сортований список нотаток.
     def search_and_sort_by_tags(self, tags):
@@ -143,13 +156,13 @@ class Notes(UserDict):
         search_tags = []
         for tag in tags:
             search_tags.append(f"#{tag.strip().lower()}")
-        for note in self.data.values():
+        for id, note in self.data.items():
             note_tags = list(map(str, note.tags))
             for tag_search in search_tags:
                 if tag_search in note_tags:
-                    result_search_and_sort_body.append(note)
+                    result_search_and_sort_body.append((id, note))
                     break
-        result_search_and_sort_body.sort(key=Note.get_date_modified, reverse=True)
+        result_search_and_sort_body.sort(key=lambda el: Note.get_date_modified(el[1]), reverse=True)
         return result_search_and_sort_body
 
     def load_from_file(self, file):

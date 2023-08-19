@@ -2,6 +2,7 @@ import pickle
 import re
 from collections import UserDict
 from datetime import datetime
+from rich.table import Table
 
 
 TEXT_COLOR = {
@@ -127,6 +128,10 @@ class Email(Field):
         else:
             self.__value = None
             raise EmailError
+        
+    def __str__(self):
+        if self.__value:
+            return self.__value
 
 
 class Name(Field):
@@ -170,13 +175,15 @@ class Record:
     def __init__(self, person_name, phone_num=None, email=None, birthday=None, address=None, ab=None):
         self.ab = ab
         self.name = person_name
+        self.phones = []
+        self.emails = []
+        self.birthday = None
+        self.address = None
         
         if phone_num:
-            self.phones = []
             self.phones.append(phone_num)
 
         if email:
-            self.emails = []
             self.emails.append(email)
         
         if birthday:
@@ -381,6 +388,34 @@ class Record:
             pass 
 
         return result
+    
+    def table_repr(self):
+        table = Table()
+        table.add_column(f'\nName: {self.name.value}\n', justify="left", width=100)
+        try:
+            p = list(x.value for x in self.phones if x.value != None)
+        except AttributeError:
+            p = []
+        table.add_row(f'Phones: {", ".join(p)}')
+        try:
+            e = list(x.value for x in self.emails if x.value != None)
+        except AttributeError:
+            e = []
+        table.add_row(f'Emails: {", ".join(e)}')
+        try:
+            bd = self.birthday.value.date()
+            dbd = str(self.ab[self.name.value].days_to_birthday())
+        except AttributeError:
+            bd = ""
+            dbd = ""
+        table.add_row(f'Birthday: {bd}' + f'\nDays to next birthday: {dbd}')
+        try:
+            if self.address.value != None:
+                addr = f'{self.address.value}'
+        except AttributeError:
+            addr = ""
+        table.add_row(f'Address: {addr}')
+        return table
 
 
 class AddressBook(UserDict):

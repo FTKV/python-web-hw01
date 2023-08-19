@@ -4,6 +4,7 @@ from datetime import datetime
 from platformdirs import user_data_dir
 from rich import print as rprint
 from .address_book_classes import Birthday, Phone, Email, Name, Record, Address, AddressBook, error_keeper
+from .output_classes import RecordConsoleOutput, RecordTableOutput
 
 
 TEXT_COLOR = {
@@ -14,6 +15,7 @@ TEXT_COLOR = {
 
 
 ab = AddressBook()
+output_handler = RecordTableOutput()
 
 # Iterator
 class ABIterator:
@@ -28,7 +30,7 @@ def iter():
     counter = ab.current_index
     for rec in abi:
         counter += 1
-        print(rec)
+        output(rec)
 
         if (counter % 2) == 0:
             rprint("type 'next' to see the next page or type enything else to stop")
@@ -214,6 +216,23 @@ def find_func(inp_split_lst):
     inp = ' '.join(inp_split_lst[1:]).strip()
     ab.find_contact(inp)
 
+
+def change_output_method(user_input):
+    global output_handler
+    if len(user_input) > 1:
+        user_input = user_input[1]
+    else:
+        user_input = None
+    if user_input not in ["console", "table"]:
+        print(TEXT_COLOR['red'] + "\nTo change the output method you need to write 'change_output_method ['console', 'table']'\n" + TEXT_COLOR["reset"])
+    else:
+        if user_input == "console":
+            output_handler = RecordConsoleOutput()
+        elif user_input == "table":
+            output_handler = RecordTableOutput()
+        print(TEXT_COLOR['green'] + "\nThe output method was changed!\n" + TEXT_COLOR["reset"])
+
+
 def get_file_path(file_name):
     path = pathlib.Path(user_data_dir("Personal assistant"))
     if os.name == "nt":
@@ -222,6 +241,12 @@ def get_file_path(file_name):
         path.mkdir()
     file_path = path.joinpath(file_name)
     return file_path
+
+
+def output(record):
+    global output_handler
+    return output_handler.output(record)
+
 
 # Main function with all input logic
 def address_book_main_func():
@@ -234,7 +259,7 @@ def address_book_main_func():
 
         ask = input('>>> ')
         inp_split_lst = ask.split(' ')
-        commands = ['add_contact', 'delete_contact', 'clear_addressbook', 'add_phone', 'change_phone', 'delete_phone', 'add_email', 'change_email', 'delete_email', 'add_birthday', 'change_birthday', 'delete_birthday', 'birthday_within', "add_address", "change_address", "delete_address", 'find', 'show', 'show_all', 'close', 'exit']
+        commands = ['add_contact', 'delete_contact', 'clear_addressbook', 'add_phone', 'change_phone', 'delete_phone', 'add_email', 'change_email', 'delete_email', 'add_birthday', 'change_birthday', 'delete_birthday', 'birthday_within', "add_address", "change_address", "delete_address", 'find', 'show', 'show_all', 'change_output_method', 'close', 'exit']
         command = inp_split_lst[0].lower()
         
         if command == 'hello':
@@ -311,9 +336,13 @@ def address_book_main_func():
 
         elif command == 'show_all':
             if len(ab) > 0:
-                print(ab)
+                for rec in ab.values():
+                    output(rec)
             else:
                 print('\nYour address book is empty now!\n')
+
+        elif command == 'change_output_method':
+            change_output_method(inp_split_lst)
 
         elif command in commands[-2:]:
             print('\nGood bye!')
